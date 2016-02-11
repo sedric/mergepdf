@@ -1,0 +1,53 @@
+#!/bin/bash
+
+recto="$1"
+verso="$2"
+output="$3"
+
+if [ -z "$3"   ] || \
+   [ ! -f "$1" ] || \
+   [ ! -f "$2" ]
+then
+  echo "$0 recto.pdf verso.pdf output.pdf"
+  exit 1
+fi
+
+if ! which pdftk >/dev/null 2>&1
+then
+  echo "Please install pdftk"
+  exit 2
+fi
+
+tmpdir=/tmp/mergepdf.$RANDOM/
+rectodir=$tmpdir/recto
+versodir=$tmpdir/verso
+catdir=$tmpdir/tocat
+
+mkdir -p $rectodir
+mkdir -p $versodir
+mkdir -p $catdir
+
+echo "Split $recto"
+pdftk "$recto" burst
+mv pg_00*.pdf $rectodir
+echo "Split $verso"
+pdftk "$verso" burst
+mv pg_00*.pdf $versodir
+nbrpdf=$(find $tmpdir -name '*.pdf' | wc -l | wc -c)
+
+j=0
+for i in $rectodir/*;
+do
+  name=$(basename $i)
+  for dir in $rectodir $versodir
+  do
+    j=$(($j + 1))
+    mv "$dir/$name" "$catdir/$(printf "%0.${nbrpdf}d" $j).pdf"
+  done
+done
+
+echo "Concatenate to $output"
+pdftk $catdir/*.pdf cat output "$output"
+
+echo "Delete temporary files"
+rm -rf "$tmpdir"
